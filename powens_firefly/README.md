@@ -30,6 +30,27 @@ which can be changed with the option "--credentials_path"
 
 ```
 
+### Configuration yaml
+
+```yaml
+firefly:
+  token: <firefly_token>
+  token_type: BearerToken
+  url: http://<firefly_url>/api
+
+mapping:
+  <origin_account_id1>: <firefly_id1>
+  <origin_account_id2>: <firefly_id2>
+  <origin_account_id3>: <firefly_id3>
+  <origin_account_id4>: <firefly_id4>
+
+powens:
+  client_id: <powens_client_id>
+  domain: <powens_domain>.biapi.pro
+  token: <powens token>
+  user_id: <powens_user_id>
+```
+
 
 ---------
 ## Note
