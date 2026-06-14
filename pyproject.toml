@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/powens_firefly"]
+
+[project]
+name = "powens-firefly"
+authors = [
+  { name="Jules Anderson" },
+]
+description = "Package to transfer transactions from Powens to Firefly III."
+dynamic = ["version"]
+requires-python = ">= 3.14"
+keywords = [
+    "bank",
+    "Firefly-III",
+    "Powens",
+]
+license = "AGPL-3.0"
+license-files = [ "LICENSE" ]
+
+dependencies = [
+    "pyyaml",
+    "requests",
+    "py-powens",
+    "firefly_iii_client",
+    "python-dateutil",
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+]
+
+urls.Repository = "https://github.com/Azurennn/powens-firefly"
+urls.Issues = "https://github.com/Azurennn/powens-firefly/issues"
+
+[project.scripts]
+powens-firefly = "powens_firefly.__main__:main"
