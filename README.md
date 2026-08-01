@@ -41,7 +41,7 @@ Exchange transfer will likely be wrong, possibly creating the transfer as from y
 and a widthdrawal transaction in your GBP account.
 
 
-### Configuration yaml
+## Configuration YAML
 
 ```yaml
 firefly:

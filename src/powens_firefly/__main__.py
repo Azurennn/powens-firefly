@@ -1,14 +1,13 @@
 """
 User interface
 """
-
+import time
 from pathlib import Path
 import argparse
 from datetime import datetime, timedelta, timezone
 import logging
 import asyncio
 
-from dateutil import parser as dateutil_parser
 from powens import PowensClient
 from firefly_iii_client.configuration import Configuration
 import dateutil
@@ -100,6 +99,8 @@ class Args:
 
 def main(input_args: list | None = None) -> None:
 
+    script_start = time.time()
+
     args = arg_parser().parse_args(input_args, namespace=Args)
 
     if args.verbose:
@@ -186,6 +187,10 @@ def main(input_args: list | None = None) -> None:
 
     loop.run_until_complete(powens_client.aclose())
     loop.close()
+
+    script_end = time.time()
+
+    print(f"powens-firefly ended in {script_end - script_start:.1f}s")
 
 if __name__ == "__main__":
     main()
