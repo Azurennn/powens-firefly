@@ -482,12 +482,13 @@ def process_credit_agricole(
     # "VIREMENT EMIS WEB"
 
     # Find COMPTE CHEQUE
-    compte_cheque_str = "COMPTE CHEQUE "
+    compte_cheque_str = "Compte de Dépôt "
     for account in accounts.values():
         if account.name.strip().startswith(compte_cheque_str):
             compte_cheque = account
             break
     else:
+        logger.debug(f"process_credit_agricole: Coulnd't find credit agricole with name '{compte_cheque_str}'")
         return [], transactions
 
     compte_cheque_keyword = compte_cheque.name.strip().replace(compte_cheque_str, "")
@@ -500,6 +501,8 @@ def process_credit_agricole(
     ca_accounts_id_list: list[BankAccount] = [ca_account.id for ca_account in ca_accounts.values()]
 
     if len(ca_accounts_id_list) < 2:
+        logger.debug(f"process_credit_agricole: Only {len(ca_accounts_id_list)} credit agricole accounts, "
+                     f"less than 2, no transfers to detect.")
         return [], transactions
 
     output_transactions: list[TransactionSplitStore] = []
@@ -569,7 +572,7 @@ def process_credit_agricole(
 # REMAINING TRANSACTIONS -----------------------------------------------------------------------------------------------
 
 
-def process_remaning_transactions(
+def process_remaining_transactions(
         transactions: list[Transaction],
         accounts: dict[int, BankAccount],
         account_mappings: dict[int, int],
@@ -708,7 +711,7 @@ def process_all_transactions(
         )
         output_transactions.extend(found_credit_agricole_transfers)
 
-    firefly_remaining_transactions = process_remaning_transactions(
+    firefly_remaining_transactions = process_remaining_transactions(
         transactions=remaining_transactions,
         accounts=powens_accounts_dict,
         account_mappings=credentials.mapping,

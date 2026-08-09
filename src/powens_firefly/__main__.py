@@ -190,7 +190,7 @@ def main(input_args: list | None = None) -> None:
 
     script_end = time.time()
 
-    print(f"powens-firefly ended in {script_end - script_start:.1f}s")
+    print(f"\npowens-firefly ran in {script_end - script_start:.1f}s")
 
 if __name__ == "__main__":
     main()
