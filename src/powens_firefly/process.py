@@ -3,7 +3,6 @@ Processing functions to detect and convert powens transactions into Firefly-III 
 """
 from datetime import datetime, time
 from dataclasses import dataclass
-from asyncio.events import AbstractEventLoop
 from decimal import Decimal
 import re
 import logging
@@ -17,6 +16,7 @@ from powens import Transaction
 from powens.models.account import BankAccount
 
 from powens_firefly.credentials import Credentials
+from powens_firefly.console import ConsoleManager
 
 logger = logging.getLogger(__name__)
 
@@ -167,35 +167,6 @@ def find_transaction_endpoint(
     return None
 
 
-def print_powens_transaction(
-        transaction: Transaction,
-        accounts: dict[int, BankAccount],
-) -> None:
-    if transaction.rdate is None:
-        raise ValueError(f"{transaction} has no rdate")
-
-    print(f"\twording: {transaction.wording}")
-
-    print(f"\tid_account: {transaction.id_account}")
-    powens_account = accounts[transaction.id_account]
-    print(f"\taccount name: {powens_account.name}")
-    print(f"\taccount iban: {powens_account.iban}")
-
-    # print(f"\tapplication_date: {transaction.application_date}")  # same as rdate
-    print(f"\tvdate: {transaction.vdate}")
-    print(f"\tvdatetime: {transaction.vdatetime}")
-    print(f"\trdate: {transaction.rdate}")
-    print(f"\trdatetime: {transaction.rdatetime}")
-
-    print(f"\tcounterparty: {transaction.counterparty}")
-
-    print(f"\tvalue: {transaction.value}")
-    print(f"\toriginal_value: {transaction.original_value}")  # Not used
-    print(f"\toriginal_currency: {transaction.original_currency}")  # Not used
-    print(f"\tcommission: {transaction.commission}")  # informative, don't add on to the value, already counted
-    print(f"\tcommission_currency: {transaction.commission_currency}")  # Not used
-
-
 def get_most_precise_datetime2(
         origin_datetime: datetime | None,
         origin_date: date,
@@ -231,7 +202,6 @@ def process_transfers(
 
     initial_transactions = transactions.copy()
 
-    print("\n--- Detecting Transfers ---")
     for index, transaction in enumerate(initial_transactions):
 
         if transaction.counterparty is None:
@@ -255,11 +225,6 @@ def process_transfers(
         ])
         transactions.remove(transaction)
         transactions.remove(ftt.counterparty_transaction)
-
-        print(f"{'-' * 50}")
-        print_powens_transaction(ftt.origin_transaction, accounts=accounts)
-        print("===")
-        print_powens_transaction(ftt.counterparty_transaction, accounts=accounts)
 
         common_firefly_transfer = CommonFireflyTransfer.from_found_transaction_transfer(
             ftt=ftt,
@@ -357,7 +322,6 @@ def process_revolut_exchanges(
 
     initial_transactions = transactions.copy()
 
-    print("\n--- Detecting Revolut Exchanges ---")
     for index, transaction in enumerate(initial_transactions):
 
         if transaction.id_account not in revolut_accounts_id_list:
@@ -391,11 +355,6 @@ def process_revolut_exchanges(
 
         transactions.remove(fre.origin_transaction)
         transactions.remove(fre.counterparty_transaction)
-
-        print(f"{'-' * 50}")
-        print_powens_transaction(fre.origin_transaction, accounts=accounts)
-        print("===")
-        print_powens_transaction(fre.counterparty_transaction, accounts=accounts)
 
         common_firefly_transfer = CommonFireflyTransfer.from_found_transaction_transfer(
             ftt=fre,
@@ -488,7 +447,7 @@ def process_credit_agricole(
             compte_cheque = account
             break
     else:
-        logger.debug(f"process_credit_agricole: Coulnd't find credit agricole with name '{compte_cheque_str}'")
+        logger.debug(f"process_credit_agricole: Couldn't find credit agricole with name '{compte_cheque_str}'")
         return [], transactions
 
     compte_cheque_keyword = compte_cheque.name.strip().replace(compte_cheque_str, "")
@@ -510,7 +469,6 @@ def process_credit_agricole(
 
     initial_transactions = transactions.copy()
 
-    print("\n--- Detecting Credit-Agricole Transfers ---")
     for index, transaction in enumerate(initial_transactions):
 
         if transaction.id_account not in ca_accounts_id_list:
@@ -542,11 +500,6 @@ def process_credit_agricole(
         transactions.remove(fcat.origin_transaction)
         transactions.remove(fcat.counterparty_transaction)
 
-        print(f"{'-' * 50}")
-        print_powens_transaction(fcat.origin_transaction, accounts=accounts)
-        print("===")
-        print_powens_transaction(fcat.counterparty_transaction, accounts=accounts)
-
         common_firefly_transfer = CommonFireflyTransfer.from_found_transaction_transfer(
             ftt=fcat,
             account_mappings=credentials.mapping,
@@ -576,14 +529,14 @@ def process_remaining_transactions(
         transactions: list[Transaction],
         accounts: dict[int, BankAccount],
         account_mappings: dict[int, int],
+        printer: ConsoleManager,
 ) -> list[TransactionSplitStore]:
     output_transactions: list[TransactionSplitStore] = []
 
-    print("\n--- Processing remaining transactions ---")
+    total_transactions = len(transactions)
     for index, transaction in enumerate(transactions):
 
-        print(f"{'-' * 50}")
-        print_powens_transaction(transaction, accounts=accounts)
+        printer.current_message = f"Transactions {(index + 1) / total_transactions * 100:.0f}%"
 
         precise_rdatetime = get_most_precise_datetime(
             transaction.rdatetime,
@@ -635,11 +588,11 @@ def process_remaining_transactions(
 
 # ALL TRANSACTIONS -----------------------------------------------------------------------------------------------------
 
-def process_all_transactions(
+async def process_all_transactions(
         credentials: Credentials,
-        loop: AbstractEventLoop,
         powens_client: PowensClient,
         firefly_configuration: Configuration,
+        printer: ConsoleManager,
         limit: int = 1000,
         min_date: datetime = None,
         max_date: datetime = None,
@@ -648,74 +601,93 @@ def process_all_transactions(
     """
     Main method to process all types of transactions from powens and convert them into Firefly-III transactions.
     """
-    powens_accounts = loop.run_until_complete(powens_client.accounts.list_all(
-        user_id=credentials.powens.user_id,
-    )).accounts
-    powens_accounts_dict = {
-        powens_account.id: powens_account
-        for powens_account in powens_accounts
-        if powens_account.id in credentials.mapping.keys()
-    }
+    with printer.animate(message="Fetching Powens accounts", no_new_line=True):
 
-    # Getting Firefly Currency ids i.e. 'EUR': 1, 'GBP': x ...
-    with firefly_iii_client.ApiClient(firefly_configuration) as api_client:
-        currencies_api = firefly_iii_client.CurrenciesApi(api_client)
-        currencies = currencies_api.list_currency()
-        currency_map = {c.attributes.code: c.id for c in currencies.data}
+        powens_accounts = (await powens_client.accounts.list_all(
+            user_id=credentials.powens.user_id,
+        )).accounts
+        powens_accounts_dict = {
+            powens_account.id: powens_account
+            for powens_account in powens_accounts
+            if powens_account.id in credentials.mapping.keys()
+        }
 
-    print("Fetching Powens transactions")
-    powens_transactions = loop.run_until_complete(powens_client.transactions.list_page(
-        limit=1000,
-        user_id=credentials.powens.user_id,
-        include_all=True,
-        min_date=min_date,
-        max_date=max_date,
-    )).transactions
+        # Getting Firefly Currency ids i.e. 'EUR': 1, 'GBP': x ...
+        printer.set_animation_message("Fetching Firefly III currencies")
+        with firefly_iii_client.ApiClient(firefly_configuration) as api_client:
+            currencies_api = firefly_iii_client.CurrenciesApi(api_client)
+            currencies = currencies_api.list_currency()
+            currency_map = {c.attributes.code: c.id for c in currencies.data}
 
-    print("Converting transactions from Powens to Firefly")
+        printer.set_animation_message("Fetching Powens transactions")
+        powens_transactions = (await powens_client.transactions.list_page(
+            limit=1000,
+            user_id=credentials.powens.user_id,
+            include_all=True,
+            min_date=min_date,
+            max_date=max_date,
+        )).transactions
 
-    output_transactions: list[TransactionSplitStore] = []
+        printer.set_animation_message(
+            "Converting transactions from Powens to Firefly")
 
-    # Make sure the transaction has been processed by having a vdate and is from an account we want to upload to Firefly
-    valid_transactions = [
-        t
-        for t in powens_transactions
-        if (
-                t.vdate is not None and
-                t.id_account in credentials.mapping.keys()
-        )
-    ]
+        output_transactions: list[TransactionSplitStore] = []
 
-    remaining_transactions = sorted(valid_transactions, key=lambda t: t.rdate)
+        # Make sure the transaction has been processed by having a vdate and is from an account we want to upload to Firefly
+        valid_transactions = [
+            t
+            for t in powens_transactions
+            if (
+                    t.vdate is not None and
+                    t.id_account in credentials.mapping.keys()
+            )
+        ]
 
-    if not no_transfers:
-        found_transfers, remaining_transactions = process_transfers(
+        remaining_transactions = sorted(valid_transactions, key=lambda t: t.rdate)
+
+        if not no_transfers:
+            transfers_progress = 0
+            printer.set_animation_message(
+                f"Transfers: {transfers_progress}% Finding Transfers")
+
+            found_transfers, remaining_transactions = process_transfers(
+                transactions=remaining_transactions,
+                accounts=powens_accounts_dict,
+                credentials=credentials,
+            )
+            output_transactions.extend(found_transfers)
+
+            transfers_progress += 33
+            printer.set_animation_message(
+                f"Transfers: {transfers_progress}% Finding Revolut Exchanges")
+
+            found_revolut_exchanges, remaining_transactions = process_revolut_exchanges(
+                transactions=remaining_transactions,
+                accounts=powens_accounts_dict,
+                credentials=credentials,
+                currency_map=currency_map,
+            )
+            output_transactions.extend(found_revolut_exchanges)
+
+            transfers_progress += 33
+            printer.set_animation_message(
+                f"Transfers: {transfers_progress}% Finding Credit Agricole Exchanges")
+
+            found_credit_agricole_transfers, remaining_transactions = process_credit_agricole(
+                transactions=remaining_transactions,
+                accounts=powens_accounts_dict,
+                credentials=credentials,
+            )
+            output_transactions.extend(found_credit_agricole_transfers)
+
+        firefly_remaining_transactions = process_remaining_transactions(
             transactions=remaining_transactions,
             accounts=powens_accounts_dict,
-            credentials=credentials,
+            account_mappings=credentials.mapping,
+            printer=printer,
         )
-        output_transactions.extend(found_transfers)
+        output_transactions.extend(firefly_remaining_transactions)
 
-        found_revolut_exchanges, remaining_transactions = process_revolut_exchanges(
-            transactions=remaining_transactions,
-            accounts=powens_accounts_dict,
-            credentials=credentials,
-            currency_map=currency_map,
-        )
-        output_transactions.extend(found_revolut_exchanges)
+        printer.set_animation_message("")
 
-        found_credit_agricole_transfers, remaining_transactions = process_credit_agricole(
-            transactions=remaining_transactions,
-            accounts=powens_accounts_dict,
-            credentials=credentials,
-        )
-        output_transactions.extend(found_credit_agricole_transfers)
-
-    firefly_remaining_transactions = process_remaining_transactions(
-        transactions=remaining_transactions,
-        accounts=powens_accounts_dict,
-        account_mappings=credentials.mapping,
-    )
-    output_transactions.extend(firefly_remaining_transactions)
-
-    return output_transactions
+    return sorted(output_transactions, key=lambda t: t.var_date)

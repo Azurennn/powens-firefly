@@ -30,6 +30,7 @@ dependencies = [
     "py-powens",
     "firefly_iii_client",
     "python-dateutil",
+    "aioconsole",
 ]
 
 classifiers = [
@@ -42,4 +43,4 @@ urls.Repository = "https://github.com/Azurennn/powens-firefly"
 urls.Issues = "https://github.com/Azurennn/powens-firefly/issues"
 
 [project.scripts]
-powens-firefly = "powens_firefly.__main__:main"
+powens-firefly = "powens_firefly.cli:main"
