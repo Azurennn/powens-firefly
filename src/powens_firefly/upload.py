@@ -1,18 +1,15 @@
 """Upload methods to firefly-III."""
 from typing import TYPE_CHECKING
 
-import firefly_iii_client
-
 if TYPE_CHECKING:
-    from firefly_iii_client.configuration import Configuration
-    from firefly_iii_client.models.transaction_split_store import TransactionSplitStore
-
     from powens_firefly.console import ConsoleManager, Color
+    from firefly import Firefly
+    from firefly.types.transaction_create_params import Transaction as FireflyTransaction
 
 
 def upload_transactions(
-        firefly_configuration: Configuration,
-        transactions: list[TransactionSplitStore],
+        firefly_client: Firefly,
+        transactions: list[FireflyTransaction],
         printer: ConsoleManager,
 ) -> None:
     with printer.animate(message="Uploading transactions", no_new_line=True):
@@ -28,16 +25,12 @@ def upload_transactions(
                 else transaction.description[:18] + "..."}",
             )
 
-            transaction_store = firefly_iii_client.TransactionStore(
-                apply_rules=True,
-                error_if_duplicate_hash=False,
-                transactions=[transaction],
-            )
-
             try:
-                with firefly_iii_client.ApiClient(firefly_configuration) as api_client:
-                    api_instance = firefly_iii_client.TransactionsApi(api_client)
-                    api_response = api_instance.store_transaction(transaction_store)
+                result = firefly_client.transactions.create(
+                    transactions=[transaction],
+                    apply_rules=True,
+                    error_if_duplicate_hash=False,
+                )
             except:
                 failed_transactions.append(transaction)
 

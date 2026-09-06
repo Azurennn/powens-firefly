@@ -7,10 +7,10 @@ from logging import LogRecord
 from time import sleep
 from typing import TYPE_CHECKING
 
-from firefly_iii_client import TransactionSplitStore, TransactionTypeProperty
-
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    from firefly.types.transaction_create_params import Transaction as FireflyTransaction
 
 
 logger = logging.getLogger(__name__)
@@ -163,7 +163,7 @@ class ConsoleManager(logging.Handler):
     @classmethod
     def get_printing_transaction_parts(
             cls,
-            transaction: TransactionSplitStore,
+            transaction: FireflyTransaction,
     ) -> list[str]:
         parts = []
         for p in cls.PRINTED_TRANSACTION_PROPERTIES:
@@ -177,13 +177,13 @@ class ConsoleManager(logging.Handler):
     @classmethod
     def print_deposit(
             cls,
-            transaction: TransactionSplitStore,
+            transaction: FireflyTransaction,
             failed: bool = False,
     ) -> None:
         """
         Print a deposit.
         """
-        failed_str = " " if not failed else cls.failed_str
+        failed_str = " " if not failed else cls.FAILED_ICON
         symbol = f"{Color.GREEN}→{Color.RESET}"
         parts = cls.get_printing_transaction_parts(transaction=transaction)
         print(f"{failed_str}{symbol} {', '.join(parts)}")
@@ -191,13 +191,13 @@ class ConsoleManager(logging.Handler):
     @classmethod
     def print_withdrawal(
             cls,
-            transaction: TransactionSplitStore,
+            transaction: FireflyTransaction,
             failed: bool = False,
     ) -> None:
         """
         Print a withdrawal.
         """
-        failed_str = " " if not failed else cls.failed_str
+        failed_str = " " if not failed else cls.FAILED_ICON
         symbol = f"{Color.RED}←{Color.RESET}"
         parts = cls.get_printing_transaction_parts(transaction=transaction)
         print(f"{failed_str}{symbol} {', '.join(parts)}")
@@ -205,13 +205,13 @@ class ConsoleManager(logging.Handler):
     @classmethod
     def print_transfer(
             cls,
-            transaction: TransactionSplitStore,
+            transaction: FireflyTransaction,
             failed: bool = False,
     ):
         """
         Print a transfer.
         """
-        failed_str = " " if not failed else cls.failed_str
+        failed_str = " " if not failed else cls.FAILED_ICON
         symbol = f"{Color.BRIGHT_BLUE}↔{Color.RESET}"
         parts = cls.get_printing_transaction_parts(transaction=transaction)
         print(f"{failed_str}{symbol} {", ".join(parts)}")
@@ -219,16 +219,16 @@ class ConsoleManager(logging.Handler):
     @classmethod
     def print_all_transactions(
             cls,
-            transactions: list[TransactionSplitStore],
+            transactions: list[FireflyTransaction],
             failed: bool = False,
     ) -> None:
         """Print all transactions."""
         for t in transactions:
-            if t.type == TransactionTypeProperty.TRANSFER:
+            if t.type == "transfer":
                 cls.print_transfer(t, failed=failed)
-            elif t.type == TransactionTypeProperty.DEPOSIT:
+            elif t.type == "deposit":
                 cls.print_deposit(t, failed=failed)
-            elif t.type == TransactionTypeProperty.WITHDRAWAL:
+            elif t.type == "withdrawal":
                 cls.print_withdrawal(t, failed=failed)
             else:
                 logger.error(f"Unknown Firefly III transaction type '{t.type}'")

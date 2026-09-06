@@ -28,7 +28,7 @@ dependencies = [
     "pyyaml",
     "requests",
     "py-powens",
-    "firefly_iii_client",
+    "firefly-iii-api",
     "python-dateutil",
     "aioconsole",
 ]

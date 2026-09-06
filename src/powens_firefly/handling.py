@@ -4,8 +4,9 @@ import webbrowser
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-import firefly_iii_client
 from aioconsole import ainput
+from firefly import Firefly
+from firefly.types.autocomplete_list_accounts_response import AutocompleteListAccountsResponseItem
 from powens import PowensClient
 
 from powens_firefly.console import Color
@@ -14,7 +15,6 @@ from powens_firefly.credentials import Credentials, FireflyCredentials, FireflyT
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from firefly_iii_client.models.autocomplete_account import AutocompleteAccount
     from powens.models.account import BankAccount
 
 logger = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ async def handle_banks(powens_client: PowensClient, credentials: Credentials) ->
 
 async def list_all_accounts(
         powens_client: PowensClient,
-        firefly_configuration: firefly_iii_client.configuration.Configuration,
+        firefly_configuration: Firefly,
         credentials: Credentials,
 ) -> None:
     print(f"\n{Color.BRIGHT_BLUE}{Color.BOLD} Powens Accounts{Color.RESET}")
@@ -136,9 +136,7 @@ async def list_all_accounts(
               f"{powens_account.currency.id} {powens_account.iban}")
 
     print(f"\n{Color.BRIGHT_BLUE}{Color.BOLD} Firefly-III Accounts{Color.RESET}")
-    with firefly_iii_client.ApiClient(firefly_configuration) as api_client:
-        api_instance = firefly_iii_client.AutocompleteApi(api_client)
-        firefly_accounts = api_instance.get_accounts_ac()
+    firefly_accounts = firefly_configuration.autocomplete.list_accounts()
 
     for firefly_account in firefly_accounts:
         print(f"{firefly_account.id} {firefly_account.name} {firefly_account.type} "
@@ -147,8 +145,8 @@ async def list_all_accounts(
 
 def find_account_by_id(
         id: int,
-        accounts: list[BankAccount | AutocompleteAccount],
-) -> BankAccount | AutocompleteAccount | None:
+        accounts: list[BankAccount | AutocompleteListAccountsResponseItem],
+) -> BankAccount | AutocompleteListAccountsResponseItem | None:
     for account in accounts:
         if int(account.id) == id:  # Force to be int since AutocompleteAccount.id is a string
             return account
@@ -157,7 +155,7 @@ def find_account_by_id(
 
 async def handle_mapping(
         powens_client: PowensClient,
-        firefly_configuration: firefly_iii_client.configuration.Configuration,
+        firefly_configuration: Firefly,
         credentials: Credentials,
 ) -> None:
 
@@ -165,9 +163,7 @@ async def handle_mapping(
         user_id=credentials.powens.user_id,
     )
 
-    with firefly_iii_client.ApiClient(firefly_configuration) as api_client:
-        api_instance = firefly_iii_client.AutocompleteApi(api_client)
-        firefly_accounts = api_instance.get_accounts_ac()
+    firefly_accounts = firefly_configuration.autocomplete.list_accounts()
 
     for powens_id, firefly_id in credentials.mapping.items():
         powens_account = find_account_by_id(powens_id, powens_accounts.accounts)

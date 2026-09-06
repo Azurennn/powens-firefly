@@ -3,8 +3,6 @@ import logging
 from datetime import UTC
 from typing import TYPE_CHECKING
 
-from firefly_iii_client.models.transaction_type_property import TransactionTypeProperty
-
 if TYPE_CHECKING:
     from powens_firefly.cli import Args
     from powens_firefly.console import ConsoleManager, Color
@@ -44,10 +42,10 @@ async def run(args: Args, printer: ConsoleManager) -> None:
         credentials.powens.token = auth_token.access_token
         credentials.save(args.credentials_path)
 
-    from firefly_iii_client.configuration import Configuration
-    firefly_configuration = Configuration(
-        host=credentials.firefly.url,
-        access_token=credentials.firefly.token,
+    from firefly import Firefly
+    firefly_client = Firefly(
+        bearer_token=credentials.firefly.token,
+        base_url=credentials.firefly.url,
     )
 
     if not args.auto:
@@ -59,12 +57,12 @@ async def run(args: Args, printer: ConsoleManager) -> None:
         )
         await list_all_accounts(
             powens_client=powens_client,
-            firefly_configuration=firefly_configuration,
+            firefly_configuration=firefly_client,
             credentials=credentials,
         )
         await handle_mapping(
             powens_client=powens_client,
-            firefly_configuration=firefly_configuration,
+            firefly_configuration=firefly_client,
             credentials=credentials,
         )
         credentials.save(args.credentials_path)
@@ -75,7 +73,7 @@ async def run(args: Args, printer: ConsoleManager) -> None:
     firefly_transactions = await process_all_transactions(
         credentials=credentials,
         powens_client=powens_client,
-        firefly_configuration=firefly_configuration,
+        firefly_client=firefly_client,
         limit=args.transaction_limit,
         min_date=args.min_date,
         max_date=args.max_date,
@@ -90,9 +88,9 @@ async def run(args: Args, printer: ConsoleManager) -> None:
 
     print(
         printer.transactions_summary(
-            n_deposits=len([t for t in firefly_transactions if t.type == TransactionTypeProperty.DEPOSIT]),
-            n_withdrawals=len([t for t in firefly_transactions if t.type == TransactionTypeProperty.WITHDRAWAL]),
-            n_transfers=len([t for t in firefly_transactions if t.type == TransactionTypeProperty.TRANSFER]),
+            n_deposits=len([t for t in firefly_transactions if t["type"] == "deposit"]),
+            n_withdrawals=len([t for t in firefly_transactions if t["type"] == "withdrawal"]),
+            n_transfers=len([t for t in firefly_transactions if t["type"] == "transfer"]),
         ) + " ready",
         flush=True,
     )
@@ -100,7 +98,7 @@ async def run(args: Args, printer: ConsoleManager) -> None:
     if not args.dry:
         from powens_firefly.upload import upload_transactions
         upload_transactions(
-            firefly_configuration=firefly_configuration,
+            firefly_client=firefly_client,
             transactions=firefly_transactions,
             printer=printer,
         )
