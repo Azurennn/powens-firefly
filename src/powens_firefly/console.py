@@ -1,18 +1,24 @@
 import logging
+import os
 import sys
-import time
 import threading
-from collections.abc import Generator
 from contextlib import contextmanager
 from logging import LogRecord
+from time import sleep
+from typing import TYPE_CHECKING
 
 from firefly_iii_client import TransactionSplitStore, TransactionTypeProperty
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 logger = logging.getLogger(__name__)
 
 
 class Color:
     """ANSI color codes for console output."""
+
     RESET = "\033[0m"
 
     BLACK = "\033[30m"
@@ -39,15 +45,30 @@ class Color:
 
 
 class ConsoleManager(logging.Handler):
-    """
-    An animated console printer/manager that handles:
+    """An animated console printer/manager that handles:
     - Animated loading dots (4x2 pattern)
     - Colored log messages above the dots
     - Thread-safe printing
-    - Custom object printing with arrows
+    - Custom object printing with arrows.
     """
 
-    def __init__(self):
+    DEPOSIT_ICON = f"{Color.GREEN}→{Color.RESET}"
+    WITHDRAWAL_ICON = f"{Color.RED}←{Color.RESET}"
+    TRANSFER_ICON = f"{Color.BRIGHT_BLUE}↔{Color.RESET}"
+
+    FAILED_ICON = f"{Color.BOLD}{Color.BRIGHT_RED}✗{Color.RESET} "
+
+    PRINTED_TRANSACTION_PROPERTIES = (
+        "description",
+        "amount",
+        "date",
+        "process_date",
+        "source_id",
+        "destination_id",
+    )
+
+
+    def __init__(self) -> None:
         super().__init__()
         self._lock = threading.Lock()
         self._animation_active = False
@@ -69,7 +90,7 @@ class ConsoleManager(logging.Handler):
         sys.stdout.flush()
 
     @staticmethod
-    def _clear_line():
+    def _clear_line() -> None:
         """Clear the current line and move cursor to start."""
         sys.stdout.write("\r\033[K")
         sys.stdout.flush()
@@ -80,7 +101,7 @@ class ConsoleManager(logging.Handler):
             sys.stdout.write(f"{log}\n")
         self._logs = []
 
-    def _animate_dots(self):
+    def _animate_dots(self) -> None:
         """Animation loop for loading dots."""
         while not self._stop_animation.is_set():
             with self._lock:
@@ -94,9 +115,9 @@ class ConsoleManager(logging.Handler):
                     sys.stdout.write(f"{dots} {self.current_message}")
                     sys.stdout.flush()
                     self._frame_index += 1
-            time.sleep(0.1)
+            sleep(0.1)
 
-    def start_animation(self, message: str = ""):
+    def start_animation(self, message: str = "") -> None:
         """Start the loading animation with a message."""
         with self._lock:
             self.current_message = message
@@ -110,7 +131,7 @@ class ConsoleManager(logging.Handler):
         with self._lock:
             self.current_message = message
 
-    def stop_animation(self, final_message: str = "", no_new_line: bool = False):
+    def stop_animation(self, final_message: str = "", no_new_line: bool = False) -> None:
         """Stop the loading animation and optionally print a final message."""
         with self._lock:
             self._animation_active = False
@@ -133,20 +154,11 @@ class ConsoleManager(logging.Handler):
                 sys.stdout.write(f"{self.format(record)}\n")
 
     @contextmanager
-    def animate(self, message: str = "", end_message: str = "", no_new_line: bool = False) -> Generator[ConsoleManager, None, None]:
+    def animate(self, message: str = "", end_message: str = "", no_new_line: bool = False) -> Generator[ConsoleManager]:
         """"""
         self.start_animation(message=message)
         yield self
         self.stop_animation(final_message=end_message, no_new_line=no_new_line)
-
-    printed_transaction_properties = (
-        "description",
-        "amount",
-        "date",
-        "process_date",
-        "source_id",
-        "destination_id",
-    )
 
     @classmethod
     def get_printing_transaction_parts(
@@ -154,14 +166,13 @@ class ConsoleManager(logging.Handler):
             transaction: TransactionSplitStore,
     ) -> list[str]:
         parts = []
-        for p in cls.printed_transaction_properties:
+        for p in cls.PRINTED_TRANSACTION_PROPERTIES:
             if hasattr(transaction, p):
                 property_value = getattr(transaction, p)
                 if property_value is not None:
                     parts.append(f"{p}: {property_value}")
         return parts
 
-    failed_str = f"{Color.BOLD}{Color.BRIGHT_RED}✗{Color.RESET} "
 
     @classmethod
     def print_deposit(
@@ -221,3 +232,23 @@ class ConsoleManager(logging.Handler):
                 cls.print_withdrawal(t, failed=failed)
             else:
                 logger.error(f"Unknown Firefly III transaction type '{t.type}'")
+
+    @classmethod
+    def transactions_summary(
+            cls,
+            n_deposits: int,
+            n_withdrawals: int,
+            n_transfers: int,
+    ) -> str:
+        """Print a summary count of each type of transaction (deposits, withdrawals, transfers)."""
+        return (
+            f"{cls.DEPOSIT_ICON} {n_deposits} deposit{'' if n_deposits == 1 else 's'}, "
+            f"{cls.WITHDRAWAL_ICON} {n_withdrawals} withdrawal{'' if n_withdrawals == 1 else 's'} and "
+            f"{cls.TRANSFER_ICON} {n_transfers} transfer{'' if n_transfers == 1 else 's'}"
+        )
+
+    @staticmethod
+    def demo_sleep(time: float) -> None:
+        """Sleep when in demo mode."""
+        if "DEMO_MODE" in os.environ:
+            sleep(time)

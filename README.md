@@ -1,10 +1,12 @@
 # Powens-Firefly
 
-This package aims at transfering Powens transactions to Firefly III
+![demo](./assets/demo.gif)
+
+This package transfers Powens transactions into Firefly III
 transactions using both tools' API.
 
-This package stores no banking information, only tokens and information to access both APIs in a `credentials.yaml` file 
-which can be specified by the user`.
+This package stores no banking information, only tokens and information to access both APIs in a `credentials.yml` file
+which can be specified by the user.
 
 
 ---------
@@ -22,7 +24,7 @@ pip install powens-firefly
 powens-firefly
 ```
 This will store credentials in the default path "credentials.yml"
-which can be changed with the option "--credentials_path"
+which can be changed with the option "--credentials-path"
 
 
 ---------

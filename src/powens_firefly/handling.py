@@ -1,26 +1,27 @@
-"""
-Handling functions to handle user input.
-"""
-from pathlib import Path
-import webbrowser
-from datetime import datetime, timezone
+"""Handling functions to handle user input."""
 import logging
-from aioconsole import ainput
+import webbrowser
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
-from powens import PowensClient
-from powens.models.account import BankAccount
 import firefly_iii_client
-from firefly_iii_client.models.autocomplete_account import AutocompleteAccount
+from aioconsole import ainput
+from powens import PowensClient
 
 from powens_firefly.console import Color
-from powens_firefly.credentials import Credentials, PowensCredentials, FireflyCredentials, FireflyTokenType
+from powens_firefly.credentials import Credentials, FireflyCredentials, FireflyTokenType, PowensCredentials
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from firefly_iii_client.models.autocomplete_account import AutocompleteAccount
+    from powens.models.account import BankAccount
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_credentials(credentials_path: Path, auto: bool) -> Credentials:
-    """
-    Handle credentials.
+    """Handle credentials.
 
     If credentials file exists, get info from it, all info must be present.
     Else ask user for Powens and Firefly inputs
@@ -32,7 +33,8 @@ async def handle_credentials(credentials_path: Path, auto: bool) -> Credentials:
         logger.debug(f"Got credentials from '{credentials_path}'")
     else:
         if auto:
-            raise FileNotFoundError(f"Mode auto activated but no config file was found at '{credentials_path}'")
+            msg = f"Mode auto activated but no config file was found at '{credentials_path}'"
+            raise FileNotFoundError(msg)
         reply = await ainput("Couldn't find credentials file, setup it up ? ([y]/n) ")
         if reply.lower() not in ("yes", "y", ""):
             raise SystemExit(1)
@@ -49,7 +51,7 @@ async def handle_credentials(credentials_path: Path, auto: bool) -> Credentials:
             client_id=powens_client_id,
             client_secret=powens_client_secret,
         )
-        token_acquired_date: str = datetime.now(tz=timezone.utc).isoformat()
+        token_acquired_date: str = datetime.now(tz=UTC).isoformat()
 
         firefly_url = (await ainput("FIREFLY URL: ")).strip()
 
@@ -145,7 +147,7 @@ async def list_all_accounts(
 
 def find_account_by_id(
         id: int,
-        accounts: list[BankAccount | AutocompleteAccount]
+        accounts: list[BankAccount | AutocompleteAccount],
 ) -> BankAccount | AutocompleteAccount | None:
     for account in accounts:
         if int(account.id) == id:  # Force to be int since AutocompleteAccount.id is a string
@@ -156,7 +158,7 @@ def find_account_by_id(
 async def handle_mapping(
         powens_client: PowensClient,
         firefly_configuration: firefly_iii_client.configuration.Configuration,
-        credentials: Credentials
+        credentials: Credentials,
 ) -> None:
 
     powens_accounts = await powens_client.accounts.list_all(
@@ -185,7 +187,7 @@ async def handle_mapping(
                 credentials.mapping.pop(firefly_id)
             continue
 
-    def resolve_name(account_id, accounts, finder):
+    def resolve_name(account_id, accounts, finder) -> str:
         account = finder(account_id, accounts)
         return f"{account_id}. {account.name if account else '??????'}"
 

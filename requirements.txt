@@ -1,2 +1,6 @@
 -e powens/
 -e powens_firefly/
+
+ruff
+mypy
+ty

@@ -1,22 +1,23 @@
-"""
-Processing functions to detect and convert powens transactions into Firefly-III transactions.
-"""
-from datetime import datetime, time
-from dataclasses import dataclass
-from decimal import Decimal
-import re
+"""Processing functions to detect and convert powens transactions into Firefly-III transactions."""
 import logging
+import re
+from dataclasses import dataclass
+from datetime import datetime, time
+from typing import TYPE_CHECKING
 
 import firefly_iii_client
 from firefly_iii_client.models.transaction_split_store import TransactionSplitStore
 from firefly_iii_client.models.transaction_type_property import TransactionTypeProperty
-from firefly_iii_client.configuration import Configuration
-from powens import PowensClient
-from powens import Transaction
-from powens.models.account import BankAccount
 
-from powens_firefly.credentials import Credentials
-from powens_firefly.console import ConsoleManager
+if TYPE_CHECKING:
+    from decimal import Decimal
+
+    from firefly_iii_client.configuration import Configuration
+    from powens import PowensClient, Transaction
+    from powens.models.account import BankAccount
+
+    from powens_firefly.console import ConsoleManager
+    from powens_firefly.credentials import Credentials
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class CommonFireflyTransfer:
             ftt: FoundTransactionTransfer,
             account_mappings: dict[int, int],
             start_message: str = "Detected from powens-firefly",
-    ) -> "CommonFireflyTransfer":
+    ) -> CommonFireflyTransfer:
         origin2counterparty = ftt.origin_transaction.value <= 0
         powens_origin_id = ftt.origin_account.id if origin2counterparty \
             else ftt.counterparty_account.id
@@ -194,9 +195,7 @@ def process_transfers(
         accounts: dict[int, BankAccount],
         credentials: Credentials,
 ) -> tuple[list[TransactionSplitStore], list[Transaction]]:
-    """
-    Find all the Transfers using counterparty iban, value without commission and date
-    """
+    """Find all the Transfers using counterparty iban, value without commission and date."""
     output_transactions: list[TransactionSplitStore] = []
     processed_transactions_indexes: list[int] = []
 
@@ -229,7 +228,7 @@ def process_transfers(
         common_firefly_transfer = CommonFireflyTransfer.from_found_transaction_transfer(
             ftt=ftt,
             account_mappings=credentials.mapping,
-            start_message="Detected Transfer from powens-firefly"
+            start_message="Detected Transfer from powens-firefly",
         )
 
         output_transactions.append(
@@ -242,7 +241,7 @@ def process_transfers(
                 source_id=str(common_firefly_transfer.origin_id),
                 destination_id=str(common_firefly_transfer.counterparty_id),
                 notes=common_firefly_transfer.notes,
-            )
+            ),
         )
 
     return output_transactions, transactions
@@ -288,7 +287,7 @@ def find_exchange_endpoint(
 
 
 def extract_currency(text: str):
-    match = re.search(r'\b(?:to|in|into|from|for)\s+([A-Z]{3})\b', text)
+    match = re.search(r"\b(?:to|in|into|from|for)\s+([A-Z]{3})\b", text)
     return match.group(1) if match else None
 
 
@@ -298,15 +297,14 @@ def process_revolut_exchanges(
         credentials: Credentials,
         currency_map: dict[str, int],
 ) -> tuple[list[TransactionSplitStore], list[Transaction]]:
-    """
-    Find combinations of revolut exchanges.
+    """Find combinations of revolut exchanges.
 
     Warning
     -------
     Example: If your base account is in EUR and you transfer GBP into USD
     This function is likely to get it wrong, possibly creating the transfer as from your EUR account to your USD account.
-    """
 
+    """
     revolut_accounts: dict[str, BankAccount] = {
         account.currency.id: account
         for account in accounts.values()
@@ -359,7 +357,7 @@ def process_revolut_exchanges(
         common_firefly_transfer = CommonFireflyTransfer.from_found_transaction_transfer(
             ftt=fre,
             account_mappings=credentials.mapping,
-            start_message="Detected Revolut Exchange from powens-firefly"
+            start_message="Detected Revolut Exchange from powens-firefly",
         )
 
         output_transactions.append(
@@ -375,7 +373,7 @@ def process_revolut_exchanges(
                 destination_id=str(common_firefly_transfer.counterparty_id),
                 foreign_currency_id=currency_map[fre.counterparty_account.currency.id],
                 notes=common_firefly_transfer.notes,
-            )
+            ),
         )
 
     return output_transactions, transactions
@@ -503,7 +501,7 @@ def process_credit_agricole(
         common_firefly_transfer = CommonFireflyTransfer.from_found_transaction_transfer(
             ftt=fcat,
             account_mappings=credentials.mapping,
-            start_message="Detected Credit-Agricole Transfer from powens-firefly"
+            start_message="Detected Credit-Agricole Transfer from powens-firefly",
         )
 
         output_transactions.append(
@@ -516,7 +514,7 @@ def process_credit_agricole(
                 source_id=str(common_firefly_transfer.origin_id),
                 destination_id=str(common_firefly_transfer.counterparty_id),
                 notes=common_firefly_transfer.notes,
-            )
+            ),
         )
 
     return output_transactions, transactions
@@ -568,7 +566,7 @@ def process_remaining_transactions(
                     process_date=precise_vdatetime,
                     source_id=str(firefly_id),
                     notes=notes,
-                )
+                ),
             )
         else:
             output_transactions.append(
@@ -580,8 +578,10 @@ def process_remaining_transactions(
                     process_date=precise_vdatetime,
                     destination_id=str(firefly_id),
                     notes=notes,
-                )
+                ),
             )
+
+        printer.demo_sleep(0.003)
 
     return output_transactions
 
@@ -594,13 +594,11 @@ async def process_all_transactions(
         firefly_configuration: Configuration,
         printer: ConsoleManager,
         limit: int = 1000,
-        min_date: datetime = None,
-        max_date: datetime = None,
+        min_date: datetime | None = None,
+        max_date: datetime | None = None,
         no_transfers: bool = False,
 ) -> list[TransactionSplitStore]:
-    """
-    Main method to process all types of transactions from powens and convert them into Firefly-III transactions.
-    """
+    """Main method to process all types of transactions from powens and convert them into Firefly-III transactions."""
     with printer.animate(message="Fetching Powens accounts", no_new_line=True):
 
         powens_accounts = (await powens_client.accounts.list_all(
@@ -609,7 +607,7 @@ async def process_all_transactions(
         powens_accounts_dict = {
             powens_account.id: powens_account
             for powens_account in powens_accounts
-            if powens_account.id in credentials.mapping.keys()
+            if powens_account.id in credentials.mapping
         }
 
         # Getting Firefly Currency ids i.e. 'EUR': 1, 'GBP': x ...
@@ -619,6 +617,8 @@ async def process_all_transactions(
             currencies = currencies_api.list_currency()
             currency_map = {c.attributes.code: c.id for c in currencies.data}
 
+        printer.demo_sleep(1)
+
         printer.set_animation_message("Fetching Powens transactions")
         powens_transactions = (await powens_client.transactions.list_page(
             limit=1000,
@@ -627,6 +627,8 @@ async def process_all_transactions(
             min_date=min_date,
             max_date=max_date,
         )).transactions
+
+        printer.demo_sleep(1)
 
         printer.set_animation_message(
             "Converting transactions from Powens to Firefly")
@@ -639,11 +641,13 @@ async def process_all_transactions(
             for t in powens_transactions
             if (
                     t.vdate is not None and
-                    t.id_account in credentials.mapping.keys()
+                    t.id_account in credentials.mapping
             )
         ]
 
         remaining_transactions = sorted(valid_transactions, key=lambda t: t.rdate)
+
+        printer.demo_sleep(1)
 
         if not no_transfers:
             transfers_progress = 0
@@ -657,6 +661,8 @@ async def process_all_transactions(
             )
             output_transactions.extend(found_transfers)
 
+            printer.demo_sleep(1)
+
             transfers_progress += 33
             printer.set_animation_message(
                 f"Transfers: {transfers_progress}% Finding Revolut Exchanges")
@@ -669,6 +675,8 @@ async def process_all_transactions(
             )
             output_transactions.extend(found_revolut_exchanges)
 
+            printer.demo_sleep(1)
+
             transfers_progress += 33
             printer.set_animation_message(
                 f"Transfers: {transfers_progress}% Finding Credit Agricole Exchanges")
@@ -679,6 +687,8 @@ async def process_all_transactions(
                 credentials=credentials,
             )
             output_transactions.extend(found_credit_agricole_transfers)
+
+            printer.demo_sleep(1)
 
         firefly_remaining_transactions = process_remaining_transactions(
             transactions=remaining_transactions,

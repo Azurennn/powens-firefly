@@ -1,22 +1,19 @@
-"""
-User interface
-"""
+"""User interface."""
 import logging
+from datetime import UTC
 from typing import TYPE_CHECKING
 
-from powens_firefly.console import ConsoleManager, Color
+from firefly_iii_client.models.transaction_type_property import TransactionTypeProperty
 
 if TYPE_CHECKING:
     from powens_firefly.cli import Args
+    from powens_firefly.console import ConsoleManager, Color
 
 logger = logging.getLogger(__name__)
 
 
 async def run(args: Args, printer: ConsoleManager) -> None:
-    from time import perf_counter
-    from datetime import datetime, timedelta, timezone
-
-    script_start = perf_counter()
+    from datetime import datetime, timedelta
 
     from powens_firefly.handling import handle_credentials
     credentials = await handle_credentials(args.credentials_path, auto=args.auto)
@@ -33,7 +30,7 @@ async def run(args: Args, printer: ConsoleManager) -> None:
 
     if (
         token_expiry is not None and
-        token_expiry <= datetime.now(tz=timezone.utc)
+        token_expiry <= datetime.now(tz=UTC)
     ):
         print(f"Powens Token renewal is required since it has expired since "
               f"{token_expiry.strftime('%Y-%m-%d %H:%M:%S')}")
@@ -58,7 +55,7 @@ async def run(args: Args, printer: ConsoleManager) -> None:
         from powens_firefly.handling import handle_banks, list_all_accounts, handle_mapping
         await handle_banks(
             powens_client=powens_client,
-            credentials=credentials
+            credentials=credentials,
         )
         await list_all_accounts(
             powens_client=powens_client,
@@ -88,8 +85,17 @@ async def run(args: Args, printer: ConsoleManager) -> None:
 
     if logging.getLogger().level <= logging.INFO:
         # TODO get firefly account names
-        print("\nProcessed transactions:")
+        print("\nProcessed transactions:", flush=True)
         printer.print_all_transactions(firefly_transactions)
+
+    print(
+        printer.transactions_summary(
+            n_deposits=len([t for t in firefly_transactions if t.type == TransactionTypeProperty.DEPOSIT]),
+            n_withdrawals=len([t for t in firefly_transactions if t.type == TransactionTypeProperty.WITHDRAWAL]),
+            n_transfers=len([t for t in firefly_transactions if t.type == TransactionTypeProperty.TRANSFER]),
+        ) + " ready",
+        flush=True,
+    )
 
     if not args.dry:
         from powens_firefly.upload import upload_transactions
@@ -100,6 +106,3 @@ async def run(args: Args, printer: ConsoleManager) -> None:
         )
 
     await powens_client.aclose()
-
-    if args.auto:
-        print(f"\npowens-firefly ran in {perf_counter() - script_start:.1f}s", flush=True)

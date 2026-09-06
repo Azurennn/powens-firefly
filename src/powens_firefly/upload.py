@@ -1,18 +1,20 @@
-"""
-Upload methods to firefly-III
-"""
-import firefly_iii_client
-from firefly_iii_client.configuration import Configuration
-from firefly_iii_client.models.transaction_split_store import TransactionSplitStore
+"""Upload methods to firefly-III."""
+from typing import TYPE_CHECKING
 
-from powens_firefly.console import ConsoleManager, Color
+import firefly_iii_client
+
+if TYPE_CHECKING:
+    from firefly_iii_client.configuration import Configuration
+    from firefly_iii_client.models.transaction_split_store import TransactionSplitStore
+
+    from powens_firefly.console import ConsoleManager, Color
 
 
 def upload_transactions(
         firefly_configuration: Configuration,
         transactions: list[TransactionSplitStore],
         printer: ConsoleManager,
-):
+) -> None:
     with printer.animate(message="Uploading transactions", no_new_line=True):
 
         total_t = len(transactions)
@@ -21,7 +23,10 @@ def upload_transactions(
 
             printer.set_animation_message(
                 f"Uploading transactions {(index + 1) / total_t * 100:.0f}% "
-                f"{transaction.description if len(transaction.description) < 20 else transaction.description[:18] + "..."}")
+                # f"{'x' * random.randrange(3, 18)}",  # noqa:
+                f"{transaction.description if len(transaction.description) < 20
+                else transaction.description[:18] + "..."}",
+            )
 
             transaction_store = firefly_iii_client.TransactionStore(
                 apply_rules=True,
@@ -36,7 +41,10 @@ def upload_transactions(
             except:
                 failed_transactions.append(transaction)
 
+            printer.demo_sleep(0.005)
+
         printer.set_animation_message("")
+
 
     if failed_transactions:
         print(f"{Color.BRIGHT_RED}\n{len(failed_transactions)} transaction{'s' if len(failed_transactions) > 1 else ''} "

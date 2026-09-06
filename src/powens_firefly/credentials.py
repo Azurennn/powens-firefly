@@ -1,13 +1,14 @@
-"""
-Class to store credentials
-"""
+"""Class to store credentials."""
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
-from pathlib import Path
-from pydantic.dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import yaml
+from pydantic.dataclasses import dataclass
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ class PowensCredentials:
     expires_in: int | None
 
     def get_date_acquired(self) -> datetime:
-        return datetime.fromisoformat(self.date_acquired_utc).astimezone(tz=timezone.utc)
+        return datetime.fromisoformat(self.date_acquired_utc).astimezone(tz=UTC)
 
     def set_data_acquired(self, date_time: datetime) -> None:
         self.date_acquired_utc = date_time.isoformat()
@@ -63,7 +64,7 @@ class Credentials:
             )
 
     @staticmethod
-    def load(file_path: Path) -> "Credentials":
+    def load(file_path: Path) -> Credentials:
 
         with file_path.open("r") as f:
             data = yaml.safe_load(f)

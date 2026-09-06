@@ -12,7 +12,7 @@ name = "powens-firefly"
 authors = [
   { name="Jules Anderson" },
 ]
-description = "Package to transfer transactions from Powens to Firefly III."
+description = "Transfer transactions from Powens to Firefly III."
 readme = "README.md"
 dynamic = ["version"]
 requires-python = ">= 3.14"
