@@ -19,8 +19,8 @@ class Args:
     credentials_path: Path
     auto: bool
     dry: bool
-    min_date: datetime
-    max_date: datetime
+    from_date: datetime | None
+    to_date: datetime | None
     transaction_limit: int
     no_transfers: bool
 
@@ -50,7 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--credentials-path",
         type=Path,
         default=Path("credentials.yml"),
-        help="Path to the credentials yaml file.",
+        help="Path to the credentials yaml file. (default = 'credentials.yml')",
     )
 
     parser.add_argument(
@@ -68,22 +68,22 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
-        "--min-date",
+        "--from-date",
         type=parse_date,
-        help="Minimum date for transactions.",
+        help="Initial date for transactions. Limits the start of transactions in chronological order.",
     )
 
     parser.add_argument(
-        "--max-date",
+        "--to-date",
         type=parse_date,
-        help="Maximum date for transactions.",
+        help="Final date for transactions. Limits the end of transactions in chronological order.",
     )
 
     parser.add_argument(
         "--transaction-limit",
         type=int,
         default=1000,
-        help="Limit for all transactions fetched (default = 1000)",
+        help="Limit for all transactions fetched. (default = 1000)",
     )
 
     parser.add_argument(

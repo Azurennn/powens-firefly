@@ -10,6 +10,7 @@ from firefly.types.transaction_create_params import Transaction as FireflyTransa
 
 if TYPE_CHECKING:
     from decimal import Decimal
+    from datetime import date
 
     from powens import PowensClient, Transaction as PowensTransaction
     from powens.models.account import BankAccount
@@ -23,6 +24,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class FoundTransactionTransfer:
+    """Transaction transfer entity."""
+
     origin_transaction: PowensTransaction
     counterparty_transaction: PowensTransaction
     origin_account: BankAccount
@@ -32,6 +35,8 @@ class FoundTransactionTransfer:
 
 @dataclass()
 class CommonFireflyTransfer:
+    """Pre-Firefly-III transfer transaction."""
+
     origin_id: int
     counterparty_id: int
 
@@ -46,6 +51,9 @@ class CommonFireflyTransfer:
             account_mappings: dict[int, int],
             start_message: str = "Detected from powens-firefly",
     ) -> CommonFireflyTransfer:
+        """
+        Create a transfer note from available information.
+        """
         origin2counterparty = ftt.origin_transaction.value <= 0
         powens_origin_id = ftt.origin_account.id if origin2counterparty \
             else ftt.counterparty_account.id
@@ -58,13 +66,13 @@ class CommonFireflyTransfer:
             ftt.origin_transaction.rdatetime,
             ftt.origin_transaction.rdate,
             ftt.counterparty_transaction.rdatetime,
-            ftt.counterparty_transaction.rdate,
+            # ftt.counterparty_transaction.rdate,  # No need if date of origin is assured
         )
         process_date = get_most_precise_datetime2(
             ftt.origin_transaction.vdatetime,
             ftt.origin_transaction.vdate,
             ftt.counterparty_transaction.vdatetime,
-            ftt.counterparty_transaction.vdate,
+            # ftt.counterparty_transaction.vdate,  # No need if date of origin is assured
         )
 
         notes = (
@@ -109,6 +117,9 @@ def find_transaction_endpoint(
         transactions: list[PowensTransaction],
         accounts: dict[int, BankAccount],
 ) -> FoundTransactionTransfer | None:
+    """
+    Find the other standard transaction related to `transaction` in `transactions` if any.
+    """
     if transaction.counterparty is None:
         return None
 
@@ -171,8 +182,8 @@ def get_most_precise_datetime2(
         origin_datetime: datetime | None,
         origin_date: date,
         counterparty_datetime: datetime | None,
-        counterparty_date: date,
 ) -> datetime:
+    """Get the most precise date or datetime available out of two possible pair of options."""
     if origin_datetime is not None:
         return origin_datetime
     if counterparty_datetime is not None:
@@ -184,6 +195,7 @@ def get_most_precise_datetime(
         src_datetime: datetime | None,
         src_date: date,
 ) -> datetime:
+    """Get the most precise date or datetime available."""
     if src_datetime is not None:
         return src_datetime
     return datetime.combine(src_date, time(0, 0, 0))
@@ -248,15 +260,13 @@ def process_transfers(
 
 # REVOLUT EXCHANGES ----------------------------------------------------------------------------------------------------
 
-
 def find_exchange_endpoint(
         transaction: PowensTransaction,
         transactions: list[PowensTransaction],
         account: BankAccount,
         counterparty_account: BankAccount,
 ) -> FoundTransactionTransfer | None:
-    """"""
-
+    """Find the other Revolut transaction related to `transaction` in `transactions` if any."""
     for index, iter_transaction in enumerate(transactions):
 
         if iter_transaction.id_account != counterparty_account.id:
@@ -285,7 +295,8 @@ def find_exchange_endpoint(
     return None
 
 
-def extract_currency(text: str):
+def extract_currency(text: str) -> str | None:
+    """Extract the first currency found from any text."""
     match = re.search(r"\b(?:to|in|into|from|for)\s+([A-Z]{3})\b", text)
     return match.group(1) if match else None
 
@@ -296,12 +307,14 @@ def process_revolut_exchanges(
         credentials: Credentials,
         currency_map: dict[str, int],
 ) -> tuple[list[FireflyTransaction], list[PowensTransaction]]:
-    """Find combinations of revolut exchanges.
+    """
+    Find combinations of revolut exchanges.
 
-    Warning
+    Warning:
     -------
     Example: If your base account is in EUR and you transfer GBP into USD
-    This function is likely to get it wrong, possibly creating the transfer as from your EUR account to your USD account.
+    This function is likely to get it wrong,
+    possibly creating the transfer as from your EUR account to your USD account.
 
     """
     revolut_accounts: dict[str, BankAccount] = {
@@ -380,8 +393,6 @@ def process_revolut_exchanges(
 
 # CREDIT-AGRICOLE TRANSFERS --------------------------------------------------------------------------------------------
 
-
-
 def find_ca_endpoint(
         transaction: PowensTransaction,
         transactions: list[PowensTransaction],
@@ -389,8 +400,7 @@ def find_ca_endpoint(
         accounts: dict[int, BankAccount],
         allowed_account_ids: list[int],
 ) -> FoundTransactionTransfer | None:
-    """"""
-
+    """Find the other Credit-Agricole transaction related to `transaction` in `transactions` if any."""
     for index, iter_transaction in enumerate(transactions):
 
         if iter_transaction.id_account == transaction.id_account:  # Same as initial account, skip
@@ -433,12 +443,8 @@ def process_credit_agricole(
         accounts: dict[int, BankAccount],
         credentials: Credentials,
 ) -> tuple[list[FireflyTransaction], list[PowensTransaction]]:
-    """"""
-
-    # "VIREMENT EMIS WEB"
-
-    # Find COMPTE CHEQUE
-    compte_cheque_str = "Compte de Dépôt "
+    """Find Transfers between Credit-Agricole accounts."""
+    compte_cheque_str = "Compte de Dépôt "  # Find COMPTE CHEQUE
     for account in accounts.values():
         if account.name.strip().startswith(compte_cheque_str):
             compte_cheque = account
@@ -528,6 +534,7 @@ def process_remaining_transactions(
         account_mappings: dict[int, int],
         printer: ConsoleManager,
 ) -> list[FireflyTransaction]:
+    """Process all transactions remaining which are therefore not transfers."""
     output_transactions: list[FireflyTransaction] = []
 
     total_transactions = len(transactions)
@@ -587,17 +594,18 @@ def process_remaining_transactions(
 
 # ALL TRANSACTIONS -----------------------------------------------------------------------------------------------------
 
-async def process_all_transactions(
+async def process_all_transactions(  # noqa: PLR0913
         credentials: Credentials,
         powens_client: PowensClient,
         firefly_client: Firefly,
         printer: ConsoleManager,
+        *,
         limit: int = 1000,
         min_date: datetime | None = None,
         max_date: datetime | None = None,
         no_transfers: bool = False,
 ) -> list[FireflyTransaction]:
-    """Main method to process all types of transactions from powens and convert them into Firefly-III transactions."""
+    """Process all types of transactions from powens and convert them into Firefly-III transactions."""
     with printer.animate(message="Fetching Powens accounts", no_new_line=True):
 
         powens_accounts = (await powens_client.accounts.list_all(
@@ -618,7 +626,7 @@ async def process_all_transactions(
 
         printer.set_animation_message("Fetching Powens transactions")
         powens_transactions = (await powens_client.transactions.list_page(
-            limit=1000,
+            limit=limit,
             user_id=credentials.powens.user_id,
             include_all=True,
             min_date=min_date,
@@ -632,7 +640,8 @@ async def process_all_transactions(
 
         output_transactions: list[FireflyTransaction] = []
 
-        # Make sure the transaction has been processed by having a vdate and is from an account we want to upload to Firefly
+        # Make sure the transaction has been processed by having a vdate
+        # and is from an account we want to upload to Firefly
         valid_transactions = [
             t
             for t in powens_transactions

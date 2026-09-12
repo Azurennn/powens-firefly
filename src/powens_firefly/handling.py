@@ -5,28 +5,30 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from aioconsole import ainput
-from firefly import Firefly
-from firefly.types.autocomplete_list_accounts_response import AutocompleteListAccountsResponseItem
 from powens import PowensClient
 
 from powens_firefly.console import Color
 from powens_firefly.credentials import Credentials, FireflyCredentials, FireflyTokenType, PowensCredentials
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
+    from firefly import Firefly
+    from firefly.types.autocomplete_list_accounts_response import AutocompleteListAccountsResponseItem
     from powens.models.account import BankAccount
 
 logger = logging.getLogger(__name__)
 
 
 async def handle_credentials(credentials_path: Path, auto: bool) -> Credentials:
-    """Handle credentials.
+    """
+    Handle credentials.
 
     If credentials file exists, get info from it, all info must be present.
     Else ask user for Powens and Firefly inputs
     and send requests to Powens to obtain token and user_id
-    (this creates a new user, a single client can have multiple users)
+    (this creates a new user, a single client can have multiple users).
     """
     if credentials_path.is_file():
         credentials = Credentials.load(credentials_path)
@@ -183,7 +185,7 @@ async def handle_mapping(
                 credentials.mapping.pop(firefly_id)
             continue
 
-    def resolve_name(account_id, accounts, finder) -> str:
+    def resolve_name(account_id, accounts, finder: Callable) -> str:
         account = finder(account_id, accounts)
         return f"{account_id}. {account.name if account else '??????'}"
 
@@ -204,7 +206,7 @@ async def handle_mapping(
     max_f = max(max_f, len("Firefly-III"))
 
     print(f"\n{'Powens'.center(max_p)}    {'Firefly-III'.center(max_f)}")
-    for p, f in zip(powens_lines, firefly_lines):
+    for p, f in zip(powens_lines, firefly_lines, strict=True):
         print(f"{p:<{max_p}} -> {f:<{max_f}}")
 
     reply = (await ainput("\nContinue with mappings ? (edit in 'credentials.yml' file) (y/[n])")).strip()

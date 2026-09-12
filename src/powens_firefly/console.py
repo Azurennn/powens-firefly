@@ -12,6 +12,8 @@ if TYPE_CHECKING:
 
     from firefly.types.transaction_create_params import Transaction as FireflyTransaction
 
+    from powens_firefly.arguments import Args
+
 
 logger = logging.getLogger(__name__)
 
@@ -167,8 +169,8 @@ class ConsoleManager(logging.Handler):
     ) -> list[str]:
         parts = []
         for p in cls.PRINTED_TRANSACTION_PROPERTIES:
-            if hasattr(transaction, p):
-                property_value = getattr(transaction, p)
+            if p in transaction:
+                property_value = transaction[p]
                 if property_value is not None:
                     parts.append(f"{p}: {property_value}")
         return parts
@@ -224,14 +226,33 @@ class ConsoleManager(logging.Handler):
     ) -> None:
         """Print all transactions."""
         for t in transactions:
-            if t.type == "transfer":
+            if t["type"] == "transfer":
                 cls.print_transfer(t, failed=failed)
-            elif t.type == "deposit":
+            elif t["type"] == "deposit":
                 cls.print_deposit(t, failed=failed)
-            elif t.type == "withdrawal":
+            elif t["type"] == "withdrawal":
                 cls.print_withdrawal(t, failed=failed)
             else:
-                logger.error(f"Unknown Firefly III transaction type '{t.type}'")
+                logger.error(f"Unknown Firefly III transaction type '{t['type']}'")
+
+    @classmethod
+    def args_summary(cls, args: Args) -> str:
+        """Print a summary of what arguments were given including dates."""
+        auto = ", in automatic mode (--auto)" if args.auto else ""
+        dry = ", with no upload (--dry)" if args.dry else ""
+        from_date = args.from_date.strftime(
+            ", from %-d %B %Y at %H:%M:%S %f UTC%z (--from-date)") if args.from_date is not None else ""
+        to_date = args.to_date.strftime(
+            ", to %-d %B %Y at %H:%M:%S %f UTC%z (--to-date)") if args.to_date is not None else ""
+        no_transfer = "with transfers disabled" if args.no_transfers else ""
+        return (
+            f"Running powens-firefly with '{args.credentials_path}'" +
+            auto +
+            dry +
+            from_date +
+            to_date +
+            no_transfer
+        )
 
     @classmethod
     def transactions_summary(

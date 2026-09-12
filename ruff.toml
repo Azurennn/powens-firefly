@@ -37,6 +37,11 @@ select = ["ALL"]
 ignore = [
     "T201",  # print
     "G004",  # logging with f-string
+    "PLC0415",  # import at top of file
+    "D212",  # Multi-line summary should start at first line
+    "D200",  # One line docstring should fit on one line
+    "FBT001",  # Boolean typed positional argument
+    "FBT002",  # Boolean default positional argument
 ]
 
 # Allow fix for all enabled rules (when `--fix`) is provided.

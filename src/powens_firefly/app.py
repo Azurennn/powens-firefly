@@ -46,6 +46,7 @@ async def run(args: Args, printer: ConsoleManager) -> None:
     firefly_client = Firefly(
         bearer_token=credentials.firefly.token,
         base_url=credentials.firefly.url,
+        timeout=5.0,
     )
 
     if not args.auto:
@@ -75,8 +76,8 @@ async def run(args: Args, printer: ConsoleManager) -> None:
         powens_client=powens_client,
         firefly_client=firefly_client,
         limit=args.transaction_limit,
-        min_date=args.min_date,
-        max_date=args.max_date,
+        min_date=args.from_date,
+        max_date=args.to_date,
         no_transfers=args.no_transfers,
         printer=printer,
     )
