@@ -104,5 +104,7 @@ async def run(args: Args, printer: ConsoleManager) -> None:
             transactions=firefly_transactions,
             printer=printer,
         )
+    else:
+        print(f"Skipping upload since in dry mode (--dry)", flush=True)
 
     await powens_client.aclose()

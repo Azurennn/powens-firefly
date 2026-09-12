@@ -35,6 +35,7 @@ exclude = [
 [lint]
 select = ["ALL"]
 ignore = [
+    "D203",  # incorrect-blank-line-before-class
     "T201",  # print
     "G004",  # logging with f-string
     "PLC0415",  # import at top of file

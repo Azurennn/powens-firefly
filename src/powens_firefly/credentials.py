@@ -2,13 +2,10 @@
 import logging
 from datetime import UTC, datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from pathlib import Path  # noqa: TC003 used by pydantic
 
 import yaml
 from pydantic.dataclasses import dataclass
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +45,7 @@ class FireflyCredentials:
 
 @dataclass
 class Credentials:
+    path: Path
     powens: PowensCredentials
     firefly: FireflyCredentials
     mapping: dict[int, int]
@@ -70,6 +68,7 @@ class Credentials:
             data = yaml.safe_load(f)
 
         return Credentials(
+            path=file_path,
             powens=PowensCredentials(**data["powens"]),
             firefly=FireflyCredentials(**data["firefly"]),
             mapping=data["mapping"],

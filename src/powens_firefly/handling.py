@@ -8,7 +8,7 @@ from aioconsole import ainput
 from powens import PowensClient
 
 from powens_firefly.console import Color
-from powens_firefly.credentials import Credentials, FireflyCredentials, FireflyTokenType, PowensCredentials
+from powens_firefly.credentials import Credentials, PowensCredentials, FireflyCredentials, FireflyTokenType
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -45,10 +45,7 @@ async def handle_credentials(credentials_path: Path, auto: bool) -> Credentials:
         powens_client_id = (await ainput("POWENS CLIENT_ID: ")).strip()
         powens_client_secret = (await ainput("POWENS CLIENT_SECRET: ")).strip()
 
-        powens_client = PowensClient(
-            base_url=powens_domain,
-
-        )
+        powens_client = PowensClient(base_url=powens_domain)
         auth_token = await powens_client.auth.init_user(
             client_id=powens_client_id,
             client_secret=powens_client_secret,
@@ -67,6 +64,7 @@ async def handle_credentials(credentials_path: Path, auto: bool) -> Credentials:
         firefly_token = (await ainput("FIREFLY TOKEN: ")).strip()
 
         credentials = Credentials(
+            path=Path("credentials.yml"),
             powens=PowensCredentials(
                 domain=powens_domain,
                 client_id=powens_client_id,
@@ -103,7 +101,7 @@ async def handle_banks(powens_client: PowensClient, credentials: Credentials) ->
             print("You currently have NO BANKS connected to Powens")
 
         reply = (
-            await ainput(f"Add a bank connection ? ({'y / [n]' if powens_banks.connections else '[y] / n'}) ")
+            await ainput(f"Add a bank connection ? ({'y / [n]' if powens_banks.connections else '[y] / n'}) :")
         ).strip()
         if reply.lower() in ("yes", "y", "1") or (not powens_banks.connections and reply == ""):
 
@@ -173,14 +171,14 @@ async def handle_mapping(
 
         if powens_account is None:
             reply = (await ainput(f"No Powens account found for id={powens_id} "
-                          f"(firefly linked id={firefly_id}), remove ? (y/[n]) ")).strip()
+                          f"(firefly linked id={firefly_id}), remove ? (y/[n]) :")).strip()
             if reply.lower() in ("y", "yes"):
                 credentials.mapping.pop(powens_id)
             continue
 
         if firefly_account is None:
             reply = (await ainput(f"No Firefly account found for id={firefly_id} "
-                          f"(powens linked id={powens_id}), remove ? (y/[n]) ")).strip()
+                          f"(powens linked id={powens_id}), remove ? (y/[n]) :")).strip()
             if reply.lower() in ("y", "yes"):
                 credentials.mapping.pop(firefly_id)
             continue
@@ -205,10 +203,12 @@ async def handle_mapping(
     max_p = max(max_p, len("Powens"))
     max_f = max(max_f, len("Firefly-III"))
 
-    print(f"\n{'Powens'.center(max_p)}    {'Firefly-III'.center(max_f)}")
+    print(f"{Color.BOLD}{'Powens'.center(max_p)}    {'Firefly-III'.center(max_f)}{Color.RESET}")
     for p, f in zip(powens_lines, firefly_lines, strict=True):
         print(f"{p:<{max_p}} -> {f:<{max_f}}")
 
-    reply = (await ainput("\nContinue with mappings ? (edit in 'credentials.yml' file) (y/[n])")).strip()
+    reply = (await ainput("\nStart upload to Firefly-III ? (y/[n]) :")).strip()
     if reply.lower() not in ("y", "yes"):
+        print(f"You can edit mappings manually based on the information provided above in '{credentials.path}'.",
+              flush=True)
         raise SystemExit(1)
