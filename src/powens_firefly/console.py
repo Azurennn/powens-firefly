@@ -47,7 +47,8 @@ class Color:
 
 
 class ConsoleManager(logging.Handler):
-    """An animated console printer/manager that handles:
+    """
+    An animated console printer/manager that handles:
     - Animated loading dots (4x2 pattern)
     - Colored log messages above the dots
     - Thread-safe printing
@@ -209,7 +210,7 @@ class ConsoleManager(logging.Handler):
             cls,
             transaction: FireflyTransaction,
             failed: bool = False,
-    ):
+    ) -> None:
         """
         Print a transfer.
         """

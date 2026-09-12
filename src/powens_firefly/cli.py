@@ -19,13 +19,14 @@ def main(input_args=None) -> None:
 
     print(printer.args_summary(args), flush=True)
 
-    from powens import PowensConnectionError
     from firefly import APIConnectionError as FireflyAPIConnectionError
+    from powens import PowensConnectionError
 
     try:
         from powens_firefly.logger import configure_logger
         configure_logger(args, printer)
         from asyncio import run as arun
+
         from powens_firefly.app import run
         arun(run(args, printer))
 

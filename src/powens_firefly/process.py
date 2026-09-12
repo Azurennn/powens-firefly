@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING
 
 from firefly.types.transaction_create_params import Transaction as FireflyTransaction
 
-
 if TYPE_CHECKING:
-    from decimal import Decimal
     from datetime import date
+    from decimal import Decimal
 
-    from powens import PowensClient, Transaction as PowensTransaction
-    from powens.models.account import BankAccount
     from firefly import Firefly
+    from powens import PowensClient
+    from powens import Transaction as PowensTransaction
+    from powens.models.account import BankAccount
 
     from powens_firefly.console import ConsoleManager
     from powens_firefly.credentials import Credentials

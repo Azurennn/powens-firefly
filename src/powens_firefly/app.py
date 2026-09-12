@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from powens_firefly.cli import Args
-    from powens_firefly.console import ConsoleManager, Color
+    from powens_firefly.console import ConsoleManager
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,9 @@ async def run(args: Args, printer: ConsoleManager) -> None:
     )
 
     if not args.auto:
+        from powens_firefly.console import Color
         print(f"\n{Color.BRIGHT_BLUE}{Color.BOLD} Configuration{Color.RESET}")
-        from powens_firefly.handling import handle_banks, list_all_accounts, handle_mapping
+        from powens_firefly.handling import handle_banks, handle_mapping, list_all_accounts
         await handle_banks(
             powens_client=powens_client,
             credentials=credentials,
