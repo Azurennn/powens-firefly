@@ -4,9 +4,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/powens_firefly"]
-
 [project]
 name = "powens-firefly"
 authors = [
@@ -34,7 +31,9 @@ dependencies = [
 ]
 
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Topic :: Office/Business :: Financial",
+    "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.14",
 ]
